@@ -41,7 +41,7 @@ def light_setup():
     """
 
     # Default Area Light, Press Shift for Spotlight
-    light_type = 8  # Area L
+    light_type = 8  # Area Light
     bc = c4d.BaseContainer()
     c4d.gui.GetInputState(c4d.BFM_INPUT_KEYBOARD, c4d.BFM_INPUT_VALUE, bc)
     if bc[c4d.BFM_INPUT_QUALIFIER] == c4d.QUALIFIER_CTRL:
@@ -124,13 +124,55 @@ def change_light_position():
     return
 
 
+# Get Nodes
+def GetNodes(obj, nodelist=[]):
+
+    while(obj):
+        if obj.IsInstanceOf(c4d.Olight):
+            nodelist.append(obj)
+        if obj.GetDown():
+            GetNodes(obj.GetDown(), nodelist)
+
+        obj = obj.GetNext()
+
+    return nodelist
+
 # Main function
 def main():
     light_object = light_setup()
     tag_target = c4d.BaseTag(c4d.Ttargetexpression)
 
+    # Check if wanting to rename targets
+    bc = c4d.BaseContainer()
+    c4d.gui.GetInputState(c4d.BFM_INPUT_KEYBOARD, c4d.BFM_INPUT_VALUE, bc)
+    if bc[c4d.BFM_INPUT_QUALIFIER] == c4d.QUALIFIER_SHIFT:
+        print "Shift Clicked"
+        first_object = doc.GetFirstObject()
+        print doc.GetFirstObject()
+        print type(first_object)
+
+        nodelist = GetNodes(first_object)
+        print len(nodelist)
+
+        if nodelist:
+            for item in nodelist:
+                # print type(item.GetTag(c4d.Ttargetexpression)[c4d.TARGETEXPRESSIONTAG_LINK])
+                print item.GetName()
+                # null_target = doc.SearchObject(item.GetTag(c4d.Ttargetexpression)[c4d.TARGETEXPRESSIONTAG_LINK])
+                null_target = item.GetTag(c4d.Ttargetexpression)[c4d.TARGETEXPRESSIONTAG_LINK]
+                print null_target.GetName()
+                actual_name = null_target.GetName().split(' | ')
+                print actual_name[1]
+
+                if item.GetName() != actual_name and len(actual_name) > 2:
+                    null_target[c4d.ID_BASELIST_NAME] = "target | " + \
+                            item.GetName() + ' | ' + actual_name[2]
+                else:
+                    null_target[c4d.ID_BASELIST_NAME] = "target | " + item.GetName()
+
+
     # Check for active object
-    if doc.GetActiveObject():
+    if doc.GetActiveObject() and not bc[c4d.BFM_INPUT_QUALIFIER] == c4d.QUALIFIER_SHIFT:
         # Change positioin if op is and instance of c4d.Olight and has a target tag
         if doc.GetActiveObject().IsInstanceOf(c4d.Olight) and \
            doc.GetActiveObject().GetTag(c4d.Ttargetexpression):
@@ -143,7 +185,7 @@ def main():
             create_active_object_target(light_object, tag_target)
 
     # Check if no object selected, create target null (0,0,0)
-    if not doc.GetActiveObject():
+    if not doc.GetActiveObject() and not bc[c4d.BFM_INPUT_QUALIFIER] == c4d.QUALIFIER_SHIFT:
         create_null_object_target(light_object, tag_target)
 
     c4d.EventAdd()
