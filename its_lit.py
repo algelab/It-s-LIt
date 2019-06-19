@@ -59,10 +59,9 @@ def light_setup():
         dist = (p2-p1).GetLength()
         light[c4d.LIGHT_DETAILS_OUTERDISTANCE] = dist
 
-
     return light
 
-    
+
 # Create Light and target tag to active object
 def create_active_object_target(light_object, tag_target):
     # add target tag link to active object
@@ -72,9 +71,6 @@ def create_active_object_target(light_object, tag_target):
 
     target_null = target_null_setup()  # Create target null
     doc.AddUndo(c4d.UNDOTYPE_NEW, target_null)
-
-    #target_null[c4d.ID_BASELIST_NAME] += light_object[c4d.ID_BASELIST_NAME].strip('Light')
-    target_null[c4d.ID_BASELIST_NAME] = "target | " + doc.GetActiveObject()[c4d.ID_BASELIST_NAME]
 
     doc.InsertObject(light_object, checknames=True)  # Insert Light Object
     doc.AddUndo(c4d.UNDOTYPE_NEW, light_object)
@@ -86,6 +82,11 @@ def create_active_object_target(light_object, tag_target):
     doc.AddUndo(c4d.UNDOTYPE_NEW, target_null)
 
     doc.EndUndo()  # ----End UNDO
+
+    #target_null[c4d.ID_BASELIST_NAME] += light_object[c4d.ID_BASELIST_NAME].strip('Light')
+    target_null[c4d.ID_BASELIST_NAME] = "target | " + \
+        light_object[c4d.ID_BASELIST_NAME] + " | " + \
+        doc.GetActiveObject()[c4d.ID_BASELIST_NAME]
 
     target_null[c4d.ID_BASEOBJECT_REL_POSITION] = doc.GetActiveObject().GetAbsPos()
     tag_target[c4d.TARGETEXPRESSIONTAG_LINK] = target_null
@@ -101,7 +102,8 @@ def create_null_object_target(light_object, tag_target):
     target_null = target_null_setup()  # Create target null
     doc.AddUndo(c4d.UNDOTYPE_NEW, target_null)
 
-    target_null[c4d.ID_BASELIST_NAME] += light_object[c4d.ID_BASELIST_NAME].strip('Light')
+    # target_null[c4d.ID_BASELIST_NAME] += light_object[c4d.ID_BASELIST_NAME].strip('Light')
+    target_null[c4d.ID_BASELIST_NAME] += ' | ' + light_object[c4d.ID_BASELIST_NAME]
 
     light_object.InsertTag(tag_target)  # Insert target tag to light
     doc.AddUndo(c4d.UNDOTYPE_NEW, tag_target)
@@ -126,7 +128,6 @@ def change_light_position():
 def main():
     light_object = light_setup()
     tag_target = c4d.BaseTag(c4d.Ttargetexpression)
-    print 
 
     # Check for active object
     if doc.GetActiveObject():
