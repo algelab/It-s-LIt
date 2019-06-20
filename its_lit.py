@@ -11,7 +11,7 @@ import c4d
 from c4d import gui
 
 
-# camera view or editor view
+# Get camera view or editor view position
 def get_cam_pos():
     bd = doc.GetRenderBaseDraw()  # editor camera
     scene_cam = bd.GetSceneCamera(doc)  # scene camera
@@ -40,33 +40,34 @@ def light_setup():
     3 = Infinite
     """
 
-    # Default Area Light, Press Shift for Spotlight
+    # Default is Area Light, Press Shift for Spotlight
     light_type = 8  # Area Light
+
+    # Spotlight after Shift click
     bc = c4d.BaseContainer()
     c4d.gui.GetInputState(c4d.BFM_INPUT_KEYBOARD, c4d.BFM_INPUT_VALUE, bc)
     if bc[c4d.BFM_INPUT_QUALIFIER] == c4d.QUALIFIER_CTRL:
         light_type = 1
 
+    # Create light and settings
     light = c4d.BaseObject(c4d.Olight).GetClone()
     light[c4d.ID_BASEOBJECT_REL_POSITION] = get_cam_pos()
     light[c4d.LIGHT_TYPE] = light_type
     light[c4d.LIGHT_SHADOWTYPE] = 1
 
+    # If object selected, set Spotlight falloff to the distance of selected object
     if light_type == 1 and doc.GetActiveObject():
         light[c4d.LIGHT_DETAILS_FALLOFF] = c4d.LIGHT_DETAILS_FALLOFF_INVERSESQUARE
-        p1 = light.GetMg().off
-        p2 = doc.GetActiveObject().GetMg().off
-        dist = (p2-p1).GetLength()
+        start_distance = light.GetMg().off
+        end_distance = doc.GetActiveObject().GetMg().off
+        dist = (end_distance-start_distance).GetLength()
         light[c4d.LIGHT_DETAILS_OUTERDISTANCE] = dist
 
     return light
 
 
-# Create Light and target tag to active object
+# Create Light and target tag to the active object
 def create_active_object_target(light_object, tag_target):
-    # add target tag link to active object
-    #tag_target[c4d.TARGETEXPRESSIONTAG_LINK] = doc.GetActiveObject()
-
     doc.StartUndo()  # ----Start UNDO
 
     target_null = target_null_setup()  # Create target null
@@ -83,16 +84,17 @@ def create_active_object_target(light_object, tag_target):
 
     doc.EndUndo()  # ----End UNDO
 
-    #target_null[c4d.ID_BASELIST_NAME] += light_object[c4d.ID_BASELIST_NAME].strip('Light')
-    target_null[c4d.ID_BASELIST_NAME] = "target | " + \
-        light_object[c4d.ID_BASELIST_NAME] + " | " + \
-        doc.GetActiveObject()[c4d.ID_BASELIST_NAME]
+    # Name the target null
+    target_null[c4d.ID_BASELIST_NAME] = "target | {} | {}".format(
+            light_object[c4d.ID_BASELIST_NAME],
+            doc.GetActiveObject()[c4d.ID_BASELIST_NAME])
 
+    # Null gets position of active object, add null to tag link
     target_null[c4d.ID_BASEOBJECT_REL_POSITION] = doc.GetActiveObject().GetAbsPos()
     tag_target[c4d.TARGETEXPRESSIONTAG_LINK] = target_null
 
 
-# Create Light and target tag to new null object
+# Create Light and target tag to new null object at (0,0,0)
 def create_null_object_target(light_object, tag_target):
     doc.StartUndo()  # ----Start UNDO
 
@@ -102,9 +104,6 @@ def create_null_object_target(light_object, tag_target):
     target_null = target_null_setup()  # Create target null
     doc.AddUndo(c4d.UNDOTYPE_NEW, target_null)
 
-    # target_null[c4d.ID_BASELIST_NAME] += light_object[c4d.ID_BASELIST_NAME].strip('Light')
-    target_null[c4d.ID_BASELIST_NAME] += ' | ' + light_object[c4d.ID_BASELIST_NAME]
-
     light_object.InsertTag(tag_target)  # Insert target tag to light
     doc.AddUndo(c4d.UNDOTYPE_NEW, tag_target)
 
@@ -112,7 +111,10 @@ def create_null_object_target(light_object, tag_target):
     doc.AddUndo(c4d.UNDOTYPE_NEW, target_null)
 
     doc.EndUndo()  # ----End UNDO
-    tag_target[c4d.TARGETEXPRESSIONTAG_LINK] = target_null  # add target tag link to new null
+
+    # Name target null and link target tag to null
+    target_null[c4d.ID_BASELIST_NAME] += ' | ' + light_object[c4d.ID_BASELIST_NAME]
+    tag_target[c4d.TARGETEXPRESSIONTAG_LINK] = target_null
 
 
 # Assign current light object to current camera position
@@ -124,9 +126,8 @@ def change_light_position():
     return
 
 
-# Get Nodes
+# Create list of light objects in active document
 def GetNodes(obj, nodelist=[]):
-
     while(obj):
         if obj.IsInstanceOf(c4d.Olight):
             nodelist.append(obj)
@@ -142,7 +143,7 @@ def main():
     light_object = light_setup()
     tag_target = c4d.BaseTag(c4d.Ttargetexpression)
 
-    # Check if wanting to rename targets
+    # Rename targets
     bc = c4d.BaseContainer()
     c4d.gui.GetInputState(c4d.BFM_INPUT_KEYBOARD, c4d.BFM_INPUT_VALUE, bc)
     if bc[c4d.BFM_INPUT_QUALIFIER] == c4d.QUALIFIER_SHIFT:
@@ -154,22 +155,25 @@ def main():
         nodelist = GetNodes(first_object)
         print len(nodelist)
 
+        doc.StartUndo()  # ----Start UNDO
+
         if nodelist:
             for item in nodelist:
-                # print type(item.GetTag(c4d.Ttargetexpression)[c4d.TARGETEXPRESSIONTAG_LINK])
-                print item.GetName()
-                # null_target = doc.SearchObject(item.GetTag(c4d.Ttargetexpression)[c4d.TARGETEXPRESSIONTAG_LINK])
+                # print item.GetName()
                 null_target = item.GetTag(c4d.Ttargetexpression)[c4d.TARGETEXPRESSIONTAG_LINK]
-                print null_target.GetName()
-                actual_name = null_target.GetName().split(' | ')
-                print actual_name[1]
+                # print null_target.GetName()
+                parsed_name = null_target.GetName().split(' | ')
+                # print parsed_name[1]
 
-                if item.GetName() != actual_name and len(actual_name) > 2:
+                if item.GetName() != parsed_name and len(parsed_name) > 2:
+                    doc.AddUndo(c4d.UNDOTYPE_CHANGE_SMALL, null_target)
                     null_target[c4d.ID_BASELIST_NAME] = "target | " + \
-                            item.GetName() + ' | ' + actual_name[2]
+                            item.GetName() + ' | ' + parsed_name[2]
                 else:
+                    doc.AddUndo(c4d.UNDOTYPE_CHANGE_SMALL, null_target)
                     null_target[c4d.ID_BASELIST_NAME] = "target | " + item.GetName()
 
+        doc.EndUndo()  # ----End UNDO
 
     # Check for active object
     if doc.GetActiveObject() and not bc[c4d.BFM_INPUT_QUALIFIER] == c4d.QUALIFIER_SHIFT:
