@@ -2,7 +2,11 @@
 
 A workflow script for Cinema 4D that creates a light at the current viewport/camera view.
 
-# Usage
+## Installation
+
+Add to scripts folder in Cinema 4D.
+
+## Usage
 
 If an oject is selected, a target will be linked to it. If nothing is selected a target will be at world center (0,0,0).
 
