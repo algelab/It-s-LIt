@@ -1,10 +1,9 @@
 """
-It's Lit: It's Lit v1 (02/19)
+It's Lit: It's Lit v1 (06/19)
 Copyright Algernon Quashie 2019
 
 Name-US: It's Lit
-Description-US: Create Area light and target null (Shift + Click for Spotlight)
-and moves light to current view position
+Description-US: Create light based on current view. CMD - Spotlight, ALT - adds target, SHIFT - renames.
 """
 
 import c4d
@@ -12,12 +11,13 @@ from c4d import gui
 
 
 # Get camera view or editor view position
-def get_cam_pos():
+def get_view_data():
     bd = doc.GetRenderBaseDraw()  # editor camera
     scene_cam = bd.GetSceneCamera(doc)  # scene camera
     if scene_cam is None:
         scene_cam = bd.GetEditorCamera()
-    return scene_cam.GetOffset()
+
+    return [scene_cam.GetOffset(), scene_cam.GetAbsRot()]
 
 
 # Null Object Instantiation
@@ -28,6 +28,7 @@ def target_null_setup():
     null[c4d.NULLOBJECT_ORIENTATION] = 2
     null[c4d.ID_BASEOBJECT_USECOLOR] = 2
     null[c4d.ID_BASEOBJECT_COLOR] = c4d.Vector(1, 1, 1)
+
     return null
 
 
@@ -46,12 +47,13 @@ def light_setup():
     # Spotlight after Shift click
     bc = c4d.BaseContainer()
     c4d.gui.GetInputState(c4d.BFM_INPUT_KEYBOARD, c4d.BFM_INPUT_VALUE, bc)
-    if bc[c4d.BFM_INPUT_QUALIFIER] == c4d.QUALIFIER_CTRL:
+    if bc[c4d.BFM_INPUT_QUALIFIER] & c4d.QUALIFIER_CTRL:
         light_type = 1
 
     # Create light and settings
     light = c4d.BaseObject(c4d.Olight).GetClone()
-    light[c4d.ID_BASEOBJECT_REL_POSITION] = get_cam_pos()
+    light[c4d.ID_BASEOBJECT_REL_POSITION] = get_view_data()[0]
+    light[c4d.ID_BASEOBJECT_REL_ROTATION] = get_view_data()[1]
     light[c4d.LIGHT_TYPE] = light_type
     light[c4d.LIGHT_SHADOWTYPE] = 1
 
@@ -117,19 +119,28 @@ def create_null_object_target(light_object, tag_target):
     tag_target[c4d.TARGETEXPRESSIONTAG_LINK] = target_null
 
 
+# Create Light at view
+def create_light_at_view(light_object):
+    doc.StartUndo()  # ----Start UNDO
+
+    doc.InsertObject(light_object, checknames=True)  # Insert Light Object
+    doc.AddUndo(c4d.UNDOTYPE_NEW, light_object)
+
+    doc.EndUndo()  # ----End UNDO
+
+
 # Assign current light object to current camera position
 def change_light_position():
     doc.StartUndo()  # ----Start UNDO
     doc.AddUndo(c4d.UNDOTYPE_CHANGE, doc.GetActiveObject())
-    doc.GetActiveObject()[c4d.ID_BASEOBJECT_REL_POSITION] = get_cam_pos()
+    doc.GetActiveObject()[c4d.ID_BASEOBJECT_REL_POSITION] = get_view_data()[0]
     doc.EndUndo()  # ----End UNDO
-    return
 
 
 # Create list of light objects in active document
 def GetNodes(obj, nodelist=[]):
     while(obj):
-        if obj.IsInstanceOf(c4d.Olight):
+        if obj.IsInstanceOf(c4d.Olight) and obj.GetTag(c4d.Ttargetexpression):
             nodelist.append(obj)
         if obj.GetDown():
             GetNodes(obj.GetDown(), nodelist)
@@ -143,28 +154,33 @@ def main():
     light_object = light_setup()
     tag_target = c4d.BaseTag(c4d.Ttargetexpression)
 
-    # Rename targets
+    # Help F1 + Click
+    bc1 = c4d.BaseContainer()
+    if c4d.gui.GetInputState(c4d.BFM_INPUT_KEYBOARD, c4d.KEY_F1, bc1):
+        if bc1[c4d.BFM_INPUT_VALUE] == 1:
+            gui.MessageDialog('OPT\\ALT - Light with Target Null' + '\n'
+                + 'CMD\\CTRL - Spotlight' + '\n'
+                + 'SHIFT - Renames targets to user set light name.')
+
+    # Container for keyboard input
     bc = c4d.BaseContainer()
     c4d.gui.GetInputState(c4d.BFM_INPUT_KEYBOARD, c4d.BFM_INPUT_VALUE, bc)
-    if bc[c4d.BFM_INPUT_QUALIFIER] == c4d.QUALIFIER_SHIFT:
-        print "Shift Clicked"
-        first_object = doc.GetFirstObject()
-        print doc.GetFirstObject()
-        print type(first_object)
 
-        nodelist = GetNodes(first_object)
-        print len(nodelist)
+    # Rename targets
+    if bc[c4d.BFM_INPUT_QUALIFIER] & c4d.QUALIFIER_SHIFT:
+        # Generate list for all lights with target tag
+        # Start with first active object and find lights
+        nodelist = GetNodes(doc.GetFirstObject())
 
         doc.StartUndo()  # ----Start UNDO
 
+        # Rename items in nodelist
         if nodelist:
             for item in nodelist:
-                # print item.GetName()
                 null_target = item.GetTag(c4d.Ttargetexpression)[c4d.TARGETEXPRESSIONTAG_LINK]
-                # print null_target.GetName()
                 parsed_name = null_target.GetName().split(' | ')
-                # print parsed_name[1]
 
+                # 3 word targets, 2 word targets
                 if item.GetName() != parsed_name and len(parsed_name) > 2:
                     doc.AddUndo(c4d.UNDOTYPE_CHANGE_SMALL, null_target)
                     null_target[c4d.ID_BASELIST_NAME] = "target | " + \
@@ -176,21 +192,27 @@ def main():
         doc.EndUndo()  # ----End UNDO
 
     # Check for active object
-    if doc.GetActiveObject() and not bc[c4d.BFM_INPUT_QUALIFIER] == c4d.QUALIFIER_SHIFT:
+    if doc.GetActiveObject() and not bc[c4d.BFM_INPUT_QUALIFIER] & c4d.QUALIFIER_SHIFT:
         # Change positioin if op is and instance of c4d.Olight and has a target tag
         if doc.GetActiveObject().IsInstanceOf(c4d.Olight) and \
            doc.GetActiveObject().GetTag(c4d.Ttargetexpression):
             change_light_position()
         # Change positioin if op is only an instance of c4d.Olight
         elif doc.GetActiveObject().IsInstanceOf(c4d.Olight):
-            doc.GetActiveObject()[c4d.ID_BASEOBJECT_REL_POSITION] = get_cam_pos()
+            doc.GetActiveObject()[c4d.ID_BASEOBJECT_REL_POSITION] = get_view_data()[0]
+            doc.GetActiveObject()[c4d.ID_BASEOBJECT_REL_ROTATION] = get_view_data()[1]
         # Create light and target if op is not an instance of c4d.Olight
         elif not doc.GetActiveObject().IsInstanceOf(c4d.Olight):
             create_active_object_target(light_object, tag_target)
 
     # Check if no object selected, create target null (0,0,0)
-    if not doc.GetActiveObject() and not bc[c4d.BFM_INPUT_QUALIFIER] == c4d.QUALIFIER_SHIFT:
-        create_null_object_target(light_object, tag_target)
+    if not doc.GetActiveObject() and not bc[c4d.BFM_INPUT_QUALIFIER] & c4d.QUALIFIER_SHIFT:
+        if not bc[c4d.BFM_INPUT_QUALIFIER] & c4d.QALT:
+            # create ligh at current view
+            create_light_at_view(light_object)
+        else:
+            # create light at current view with target null
+            create_null_object_target(light_object, tag_target)
 
     c4d.EventAdd()
 
