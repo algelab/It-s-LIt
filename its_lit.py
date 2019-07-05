@@ -3,7 +3,7 @@ It's Lit: It's Lit v1 (06/19)
 Copyright Algernon Quashie 2019
 
 Name-US: It's Lit
-Description-US: Create light based on current view. CMD - Spotlight, ALT - adds target, SHIFT - renames.
+Description-US: Create light based on current view. (ESC + Click for help)
 """
 
 import c4d
@@ -92,7 +92,8 @@ def create_active_object_target(light_object, tag_target):
             doc.GetActiveObject()[c4d.ID_BASELIST_NAME])
 
     # Null gets position of active object, add null to tag link
-    target_null[c4d.ID_BASEOBJECT_REL_POSITION] = doc.GetActiveObject().GetAbsPos()
+    offset = doc.GetActiveObject().GetMg()
+    target_null[c4d.ID_BASEOBJECT_REL_POSITION] = offset.off
     tag_target[c4d.TARGETEXPRESSIONTAG_LINK] = target_null
 
 
@@ -156,11 +157,11 @@ def main():
 
     # Help F1 + Click
     bc1 = c4d.BaseContainer()
-    if c4d.gui.GetInputState(c4d.BFM_INPUT_KEYBOARD, c4d.KEY_F1, bc1):
+    if c4d.gui.GetInputState(c4d.BFM_INPUT_KEYBOARD, c4d.KEY_ESC, bc1):
         if bc1[c4d.BFM_INPUT_VALUE] == 1:
-            gui.MessageDialog('OPT\\ALT - Light with Target Null' + '\n'
-                + 'CMD\\CTRL - Spotlight' + '\n'
-                + 'SHIFT - Renames targets to user set light name.')
+            gui.MessageDialog('CMD\\CTRL - Spotlight' + '\n'
+                + 'OPT\\ALT - Light with Target Null' + '\n'
+                + 'SHIFT - Renames targets to user set light name')
 
     # Container for keyboard input
     bc = c4d.BaseContainer()
