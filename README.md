@@ -21,17 +21,17 @@ Click the button named “Open Preferences Folder”\
 Add button/shortcut to your workspace for easier clicking.\
 __SHIFT + C__ >> It's Lit >> Drag to workspace.
 
-Click to create and Area Light at the current view.\
-__OPT/ALT__ to create a light with target at world center (0,0,0).\
-Select and object, __OPT/ALT__ to create light with target to selected object.
+Click to create an Area Light at the current view.\
+__OPT/ALT__ to create a light with a target at world center (0,0,0).\
+Select an object, __OPT/ALT__ to create light with a target to the selected object.
 
 Any light in the scene can be repositioned to current view.\
 Select light and click the script.
 
-CMD/CTRL create a Spotlight
+CMD/CTRL to create a Spotlight
 
 SHIFT will rename targets\
-Change the name of the light objects and __SHIFT__ click on script will rename the targets.
+Change the name of the light objects and __SHIFT__-Click on script will rename the targets.
 
 __Tip:__\
 If you already have a camera in the scene. Use the viewport camera to set your lights so you don't lose your place.
