@@ -2,19 +2,21 @@
 
 A workflow script for Cinema 4D that creates a light at the current viewport/camera view. R18+
 
+
+[Download/Video Introduction](https://gumroad.com/products/AZwRJ)
+
 ## Installation
 
-Add to __Library/Scripts__ folder in Cinema 4D.
+Add to __library/scripts__ folder in Cinema 4D.
 
 
 __Pre-R20:__\
-__WIN__ >> C:/Program files/MAXON/CINEMA 4D Rxx\
-__OSX__ >> /Applications/MAXON/CINEMA 4D Rxx
+__WIN__ >> C:/Program files/MAXON/CINEMA 4D Rxx\library/scripts
+__OSX__ >> /Applications/MAXON/CINEMA 4D Rxx/library/scripts
 
 __R20:__\
 Open your preferences dialog box (Menu >> Edit >> Preferences)
 Click the button named “Open Preferences Folder”\
-![](https://github.com/algelab/files/blob/master/prefs.gif)
 
 ## Usage
 
