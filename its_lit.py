@@ -7,7 +7,7 @@ Description-US: Create light based on current view. (ESC + Click for help)
 """
 
 import c4d
-from c4d import gui
+from c4d import gui, plugins
 
 
 # Get camera view or editor view position
@@ -34,38 +34,84 @@ def target_null_setup():
 
 # Light Object Instantiation
 def light_setup():
-    """
-    0 = Omni Light
-    1 = Spot Light
-    8 = Area Light
-    3 = Infinite
-    """
+    light = None
 
-    # Default is Area Light, Press Shift for Spotlight
-    light_type = 8  # Area Light
+    # Find the render engine
+    def find_engine():
+        print "Find Engine:"
+        engine = doc.GetActiveRenderData()
+        engine_id = engine[c4d.RDATA_RENDERENGINE]
+        base_plug = plugins.FindPlugin(engine_id, c4d.PLUGINTYPE_VIDEOPOST)
+        # print base_plug.GetName()
+        if base_plug is None:
+            return False
 
-    # Spotlight after Shift click
-    bc = c4d.BaseContainer()
-    c4d.gui.GetInputState(c4d.BFM_INPUT_KEYBOARD, c4d.BFM_INPUT_VALUE, bc)
-    if bc[c4d.BFM_INPUT_QUALIFIER] & c4d.QUALIFIER_CTRL:
-        light_type = 1
+        if base_plug.GetName() == "Redshift":
+            return True
+        else:
+            return False
 
-    # Create light and settings
-    light = c4d.BaseObject(c4d.Olight).GetClone()
-    light[c4d.ID_BASEOBJECT_REL_POSITION] = get_view_data()[0]
-    light[c4d.ID_BASEOBJECT_REL_ROTATION] = get_view_data()[1]
-    light[c4d.LIGHT_TYPE] = light_type
-    light[c4d.LIGHT_SHADOWTYPE] = 1
+    # Redshift Engine
+    if find_engine():
+        print "Find light:"
+        objID = None
+        dest2 = plugins.FilterPluginList(c4d.PLUGINTYPE_OBJECT, True)
+        print dest2
+        for x in dest2:
+            if x.GetName() == 'Redshift Light':
+                objID = x
+                break
 
-    # If object selected, set Spotlight falloff to the distance of selected object
-    if light_type == 1 and doc.GetActiveObject():
-        light[c4d.LIGHT_DETAILS_FALLOFF] = c4d.LIGHT_DETAILS_FALLOFF_INVERSESQUARE
-        start_distance = light.GetMg().off
-        end_distance = doc.GetActiveObject().GetMg().off
-        dist = (end_distance-start_distance).GetLength()
-        light[c4d.LIGHT_DETAILS_OUTERDISTANCE] = dist
+        light_type = 3  # Area Light (default)
 
-    return light
+        # Spotlight after Shift click
+        bc = c4d.BaseContainer()
+        c4d.gui.GetInputState(c4d.BFM_INPUT_KEYBOARD, c4d.BFM_INPUT_VALUE, bc)
+        if bc[c4d.BFM_INPUT_QUALIFIER] & c4d.QUALIFIER_CTRL:
+            light_type = 2
+
+        # Create light and settings
+        base_object = objID.GetID()
+        light = c4d.BaseObject(objID.GetID()).GetClone()
+        light[c4d.ID_BASEOBJECT_REL_POSITION] = get_view_data()[0]
+        light[c4d.ID_BASEOBJECT_REL_ROTATION] = get_view_data()[1]
+        light[c4d.REDSHIFT_LIGHT_TYPE] = light_type
+        # light[c4d.LIGHT_SHADOWTYPE] = 1
+
+    # Native Render Engine
+    if not find_engine():
+        """
+        0 = Omni Light
+        1 = Spot Light
+        8 = Area Light
+        3 = Infinite
+        """
+
+        # Default is Area Light, Press Shift for Spotlight
+        light_type = 8  # Area Light
+
+        # Spotlight after Shift click
+        bc = c4d.BaseContainer()
+        c4d.gui.GetInputState(c4d.BFM_INPUT_KEYBOARD, c4d.BFM_INPUT_VALUE, bc)
+        if bc[c4d.BFM_INPUT_QUALIFIER] & c4d.QUALIFIER_CTRL:
+            light_type = 1
+
+        # Create light and settings
+        light = c4d.BaseObject(c4d.Olight).GetClone()
+        light[c4d.ID_BASEOBJECT_REL_POSITION] = get_view_data()[0]
+        light[c4d.ID_BASEOBJECT_REL_ROTATION] = get_view_data()[1]
+        light[c4d.LIGHT_TYPE] = light_type
+        light[c4d.LIGHT_SHADOWTYPE] = 1
+
+        # If object selected, set Spotlight falloff to the distance of selected object
+        if light_type == 1 and doc.GetActiveObject():
+            light[c4d.LIGHT_DETAILS_FALLOFF] = c4d.LIGHT_DETAILS_FALLOFF_INVERSESQUARE
+            start_distance = light.GetMg().off
+            end_distance = doc.GetActiveObject().GetMg().off
+            dist = (end_distance-start_distance).GetLength()
+            light[c4d.LIGHT_DETAILS_OUTERDISTANCE] = dist
+
+    return light, base_object
 
 
 # Create Light and target tag to the active object
@@ -150,10 +196,15 @@ def GetNodes(obj, nodelist=[]):
 
     return nodelist
 
+
 # Main function
 def main():
-    light_object = light_setup()
+    light_object, base_obj = light_setup()
     tag_target = c4d.BaseTag(c4d.Ttargetexpression)
+
+    print type(light_object)
+    print light_object.GetGUID()
+    print type(c4d.BaseObject(c4d.Onull))
 
     # Help F1 + Click
     bc1 = c4d.BaseContainer()
@@ -195,15 +246,15 @@ def main():
     # Check for active object
     if doc.GetActiveObject() and not bc[c4d.BFM_INPUT_QUALIFIER] & c4d.QUALIFIER_SHIFT:
         # Change positioin if op is and instance of c4d.Olight and has a target tag
-        if doc.GetActiveObject().IsInstanceOf(c4d.Olight) and \
+        if doc.GetActiveObject().IsInstanceOf(base_obj) and \
            doc.GetActiveObject().GetTag(c4d.Ttargetexpression):
             change_light_position()
         # Change positioin if op is only an instance of c4d.Olight
-        elif doc.GetActiveObject().IsInstanceOf(c4d.Olight):
+        elif doc.GetActiveObject().IsInstanceOf(base_obj):
             doc.GetActiveObject()[c4d.ID_BASEOBJECT_REL_POSITION] = get_view_data()[0]
             doc.GetActiveObject()[c4d.ID_BASEOBJECT_REL_ROTATION] = get_view_data()[1]
         # Create light and target if op is not an instance of c4d.Olight
-        elif not doc.GetActiveObject().IsInstanceOf(c4d.Olight):
+        elif not doc.GetActiveObject().IsInstanceOf(base_obj):
             create_active_object_target(light_object, tag_target)
 
     # Check if no object selected, create target null (0,0,0)
