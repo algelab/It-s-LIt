@@ -20,7 +20,7 @@ def get_view_data():
     return [scene_cam.GetOffset(), scene_cam.GetAbsRot()]
 
 
-# Null Object Instantiation
+# NULL OBJECT INSTANTIATION
 def target_null_setup():
     null = c4d.BaseObject(c4d.Onull).GetClone()
     null[c4d.ID_BASELIST_NAME] = 'target'
@@ -32,12 +32,13 @@ def target_null_setup():
     return null
 
 
-# Light Object Instantiation
+# LIGHT OBJECT INSTANTIATION
 def light_setup():
     light = None
     base_objectID = None
+    tag_octane = None
 
-    # Find the render engine
+    # FIND THE RENDER ENGINE
     def find_engine():
         print "Find Engine:"
         engine = doc.GetActiveRenderData()
@@ -45,15 +46,15 @@ def light_setup():
         base_plug = plugins.FindPlugin(engine_id, c4d.PLUGINTYPE_VIDEOPOST)
         # print base_plug.GetName()
         if base_plug is None:
-            return False
+            return "Native"
+        if "Redshift" in base_plug.GetName():
+            return "Redshift"
+        if "Octane" in base_plug.GetName():
+            return "Octane"
 
-        if base_plug.GetName() == "Redshift":
-            return True
-        else:
-            return False
-
+    ####################
     # REDSHIFT ENGINE
-    if find_engine():
+    if find_engine() == "Redshift":
         print "Find light:"
         plugID = None
         found_plug = plugins.FilterPluginList(c4d.PLUGINTYPE_OBJECT, True)
@@ -92,9 +93,40 @@ def light_setup():
             dist = (end_distance-start_distance).GetLength()
             light[c4d.LIGHT_DETAILS_OUTERDISTANCE] = dist
 
+    ####################
+    # OCTANE RENDER ENGINE
+    if find_engine() == "Octane":
+        # DEFAULT IS AREA LIGHT, PRESS SHIFT FOR SPOTLIGHT
+        light_type = 8  # Area Light
 
+        # SPOTLIGHT AFTER SHIFT CLICK
+        # bc = c4d.BaseContainer()
+        # c4d.gui.GetInputState(c4d.BFM_INPUT_KEYBOARD, c4d.BFM_INPUT_VALUE, bc)
+        # if bc[c4d.BFM_INPUT_QUALIFIER] & c4d.QUALIFIER_CTRL:
+        #     light_type = 1
+
+        # CREATE LIGHT AND SETTINGS
+        base_objectID = c4d.Olight
+        light = c4d.BaseObject(base_objectID).GetClone()
+        tag_octane = c4d.BaseTag(1029526)
+        light[c4d.ID_BASEOBJECT_REL_POSITION] = get_view_data()[0]
+        light[c4d.ID_BASEOBJECT_REL_ROTATION] = get_view_data()[1]
+        if light_type == 8:
+            light[c4d.ID_BASELIST_NAME] = "Octane Light"
+        light[c4d.LIGHT_TYPE] = light_type
+        # light[c4d.LIGHT_SHADOWTYPE] = 1
+
+        # IF OBJECT SELECTED, SET SPOTLIGHT FALLOFF TO THE DISTANCE OF SELECTED OBJECT
+        # if light_type == 1 and doc.GetActiveObject():
+        #     light[c4d.LIGHT_DETAILS_FALLOFF] = c4d.LIGHT_DETAILS_FALLOFF_INVERSESQUARE
+        #     start_distance = light.GetMg().off
+        #     end_distance = doc.GetActiveObject().GetMg().off
+        #     dist = (end_distance-start_distance).GetLength()
+        #     light[c4d.LIGHT_DETAILS_OUTERDISTANCE] = dist
+
+    ####################
     # NATIVE RENDER ENGINE
-    if not find_engine():
+    if find_engine() == "Native":
         """
         0 = Omni Light
         1 = Spot Light
@@ -116,6 +148,10 @@ def light_setup():
         light = c4d.BaseObject(base_objectID).GetClone()
         light[c4d.ID_BASEOBJECT_REL_POSITION] = get_view_data()[0]
         light[c4d.ID_BASEOBJECT_REL_ROTATION] = get_view_data()[1]
+        if light_type == 8:
+            light[c4d.ID_BASELIST_NAME] = "Area Light"
+        if light_type == 1:
+            light[c4d.ID_BASELIST_NAME] = "Spot Light"
         light[c4d.LIGHT_TYPE] = light_type
         light[c4d.LIGHT_SHADOWTYPE] = 1
 
@@ -127,11 +163,11 @@ def light_setup():
             dist = (end_distance-start_distance).GetLength()
             light[c4d.LIGHT_DETAILS_OUTERDISTANCE] = dist
 
-    return light, base_objectID
+    return light, base_objectID, tag_octane
 
 
-# Create Light and target tag to the active object
-def create_active_object_target(light_object, tag_target):
+# CREATE LIGHT AND TARGET TAG TO THE ACTIVE OBJECT
+def create_active_object_target(light_object, tag_octane, tag_target):
     doc.StartUndo()  # ----Start UNDO
 
     target_null = target_null_setup()  # Create target null
@@ -139,6 +175,10 @@ def create_active_object_target(light_object, tag_target):
 
     doc.InsertObject(light_object, checknames=True)  # Insert Light Object
     doc.AddUndo(c4d.UNDOTYPE_NEW, light_object)
+
+    if tag_octane is not None:
+        light_object.InsertTag(tag_octane)  # Insert target tag to light
+        doc.AddUndo(c4d.UNDOTYPE_NEW, tag_octane)
 
     light_object.InsertTag(tag_target)  # add target tag to light
     doc.AddUndo(c4d.UNDOTYPE_NEW, tag_target)
@@ -160,7 +200,7 @@ def create_active_object_target(light_object, tag_target):
 
 
 # Create Light and target tag to new null object at (0,0,0)
-def create_null_object_target(light_object, tag_target):
+def create_null_object_target(light_object, tag_octane, tag_target):
     doc.StartUndo()  # ----Start UNDO
 
     doc.InsertObject(light_object, checknames=True)  # Insert Light Object
@@ -168,6 +208,10 @@ def create_null_object_target(light_object, tag_target):
 
     target_null = target_null_setup()  # Create target null
     doc.AddUndo(c4d.UNDOTYPE_NEW, target_null)
+
+    if tag_octane is not None:
+        light_object.InsertTag(tag_octane)  # Insert target tag to light
+        doc.AddUndo(c4d.UNDOTYPE_NEW, tag_octane)
 
     light_object.InsertTag(tag_target)  # Insert target tag to light
     doc.AddUndo(c4d.UNDOTYPE_NEW, tag_target)
@@ -183,11 +227,15 @@ def create_null_object_target(light_object, tag_target):
 
 
 # Create Light at view
-def create_light_at_view(light_object):
+def create_light_at_view(light_object, tag_octane=None):
     doc.StartUndo()  # ----Start UNDO
 
     doc.InsertObject(light_object, checknames=True)  # Insert Light Object
     doc.AddUndo(c4d.UNDOTYPE_NEW, light_object)
+
+    if tag_octane is not None:
+        light_object.InsertTag(tag_octane)  # Insert target tag to light
+        doc.AddUndo(c4d.UNDOTYPE_NEW, tag_octane)
 
     doc.EndUndo()  # ----End UNDO
 
@@ -215,7 +263,7 @@ def GetNodes(obj, base_objID, nodelist=[]):
 
 # Main function
 def main():
-    light_object, base_objID = light_setup()
+    light_object, base_objID, tag_octane = light_setup()
     tag_target = c4d.BaseTag(c4d.Ttargetexpression)
 
     print type(light_object)
@@ -271,16 +319,16 @@ def main():
             doc.GetActiveObject()[c4d.ID_BASEOBJECT_REL_ROTATION] = get_view_data()[1]
         # Create light and target if op is not an instance of c4d.Olight
         elif not doc.GetActiveObject().IsInstanceOf(base_objID):
-            create_active_object_target(light_object, tag_target)
+            create_active_object_target(light_object, tag_octane, tag_target)
 
     # Check if no object selected, create target null (0,0,0)
     if not doc.GetActiveObject() and not bc[c4d.BFM_INPUT_QUALIFIER] & c4d.QUALIFIER_SHIFT:
         if not bc[c4d.BFM_INPUT_QUALIFIER] & c4d.QALT:
             # create ligh at current view
-            create_light_at_view(light_object)
+            create_light_at_view(light_object, tag_octane)
         else:
             # create light at current view with target null
-            create_null_object_target(light_object, tag_target)
+            create_null_object_target(light_object, tag_octane, tag_target)
 
     c4d.EventAdd()
 
