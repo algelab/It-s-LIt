@@ -40,11 +40,9 @@ def light_setup():
 
     # FIND THE RENDER ENGINE
     def find_engine():
-        print "Find Engine:"
         engine = doc.GetActiveRenderData()
         engine_id = engine[c4d.RDATA_RENDERENGINE]
         base_plug = plugins.FindPlugin(engine_id, c4d.PLUGINTYPE_VIDEOPOST)
-        # print base_plug.GetName()
         if base_plug is None:
             return "Native"
         if "Redshift" in base_plug.GetName():
@@ -55,10 +53,8 @@ def light_setup():
     ####################
     # REDSHIFT ENGINE
     if find_engine() == "Redshift":
-        print "Find light:"
         plugID = None
         found_plug = plugins.FilterPluginList(c4d.PLUGINTYPE_OBJECT, True)
-        print found_plug
         for item in found_plug:
             if item.GetName() == 'Redshift Light':
                 plugID = item
@@ -99,12 +95,6 @@ def light_setup():
         # DEFAULT IS AREA LIGHT, PRESS SHIFT FOR SPOTLIGHT
         light_type = 8  # Area Light
 
-        # SPOTLIGHT AFTER SHIFT CLICK
-        # bc = c4d.BaseContainer()
-        # c4d.gui.GetInputState(c4d.BFM_INPUT_KEYBOARD, c4d.BFM_INPUT_VALUE, bc)
-        # if bc[c4d.BFM_INPUT_QUALIFIER] & c4d.QUALIFIER_CTRL:
-        #     light_type = 1
-
         # CREATE LIGHT AND SETTINGS
         base_objectID = c4d.Olight
         light = c4d.BaseObject(base_objectID).GetClone()
@@ -114,15 +104,6 @@ def light_setup():
         if light_type == 8:
             light[c4d.ID_BASELIST_NAME] = "Octane Light"
         light[c4d.LIGHT_TYPE] = light_type
-        # light[c4d.LIGHT_SHADOWTYPE] = 1
-
-        # IF OBJECT SELECTED, SET SPOTLIGHT FALLOFF TO THE DISTANCE OF SELECTED OBJECT
-        # if light_type == 1 and doc.GetActiveObject():
-        #     light[c4d.LIGHT_DETAILS_FALLOFF] = c4d.LIGHT_DETAILS_FALLOFF_INVERSESQUARE
-        #     start_distance = light.GetMg().off
-        #     end_distance = doc.GetActiveObject().GetMg().off
-        #     dist = (end_distance-start_distance).GetLength()
-        #     light[c4d.LIGHT_DETAILS_OUTERDISTANCE] = dist
 
     ####################
     # NATIVE RENDER ENGINE
@@ -266,10 +247,6 @@ def main():
     light_object, base_objID, tag_octane = light_setup()
     tag_target = c4d.BaseTag(c4d.Ttargetexpression)
 
-    print type(light_object)
-    print light_object.GetGUID()
-    print type(c4d.BaseObject(c4d.Onull))
-
     # Help F1 + Click
     bc1 = c4d.BaseContainer()
     if c4d.gui.GetInputState(c4d.BFM_INPUT_KEYBOARD, c4d.KEY_ESC, bc1):
@@ -331,7 +308,6 @@ def main():
             create_null_object_target(light_object, tag_octane, tag_target)
 
     c4d.EventAdd()
-
 
 # Execute main()
 if __name__ == '__main__':
